@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyMind AI — Your Intelligent Study Partner</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root {
+  --bg: #0a0b0f;
+  --surface: #111318;
+  --surface2: #181c24;
+  --surface3: #1e2330;
+  --border: #252a38;
+  --accent: #6ee7b7;
+  --accent2: #818cf8;
+  --accent3: #fb923c;
+  --text: #e8eaf0;
+  --text2: #8892a4;
+  --text3: #4a5568;
+  --danger: #f87171;
+  --success: #34d399;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:260px 1fr;grid-template-rows:60px 1fr;height:100vh;max-height:100vh}
+.topbar{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;position:relative;z-index:10}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.5px}
+.logo span{color:var(--accent)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text2)}
+/* ── SIDEBAR ── */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-section{padding:16px 12px 8px;font-size:11px;font-weight:600;letter-spacing:1px;color:var(--text3);text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:var(--radius-sm);margin:2px 8px;cursor:pointer;font-size:14px;color:var(--text2);transition:all .15s;border:none;background:none;width:calc(100% - 16px);text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(110,231,183,.1);color:var(--accent);font-weight:500}
+.nav-item .icon{width:18px;height:18px;opacity:.7;flex-shrink:0}
+.nav-item.active .icon{opacity:1}
+.sidebar-docs{flex:1;overflow-y:auto;padding:8px}
+.doc-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;margin-bottom:2px;border:1px solid transparent}
+.doc-item:hover{background:var(--surface2);border-color:var(--border)}
+.doc-item.selected{background:rgba(129,140,248,.08);border-color:rgba(129,140,248,.25)}
+.doc-icon{width:32px;height:32px;border-radius:8px;background:rgba(129,140,248,.15);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.doc-info{overflow:hidden;flex:1}
+.doc-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.doc-delete{opacity:0;background:none;border:none;color:var(--danger);cursor:pointer;padding:4px;border-radius:4px;flex-shrink:0;transition:opacity .15s}
+.doc-item:hover .doc-delete{opacity:1}
+/* ── MAIN ── */
+.main{overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
+/* ── SCREENS ── */
+.screen{display:none;flex:1;overflow:hidden;animation:fadeIn .2s ease}
+.screen.active{display:flex;flex-direction:column}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* ── UPLOAD SCREEN ── */
+.upload-screen{align-items:center;justify-content:center;padding:40px}
+.upload-card{background:var(--surface);border:2px dashed var(--border);border-radius:24px;padding:60px 80px;text-align:center;max-width:520px;width:100%;cursor:pointer;transition:all .2s;position:relative}
+.upload-card:hover,.upload-card.drag-over{border-color:var(--accent);background:rgba(110,231,183,.03)}
+.upload-icon{font-size:56px;margin-bottom:20px}
+.upload-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:700;margin-bottom:10px}
+.upload-sub{color:var(--text2);font-size:15px;line-height:1.6;margin-bottom:28px}
+.upload-input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:var(--radius-sm);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:'DM Sans',sans-serif}
+.btn-primary{background:var(--accent);color:#0a0b0f}
+.btn-primary:hover{background:#4ade80}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--surface3);border-color:var(--accent2)}
+.btn-ghost{background:none;color:var(--text2)}
+.btn-ghost:hover{color:var(--text);background:var(--surface2)}
+.btn-danger{background:rgba(248,113,113,.1);color:var(--danger);border:1px solid rgba(248,113,113,.25)}
+.btn-danger:hover{background:rgba(248,113,113,.2)}
+.upload-formats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:20px}
+.format-tag{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text3)}
+/* ── CHAT SCREEN ── */
+.chat-screen{background:var(--bg)}
+.chat-header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--surface);flex-shrink:0}
+.chat-header-doc{font-weight:600;font-size:15px}
+.chat-header-sub{font-size:12px;color:var(--text2)}
+.chat-messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px}
+.chat-messages::-webkit-scrollbar{width:4px}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.msg{display:flex;gap:12px;animation:fadeIn .2s ease}
+.msg.user{flex-direction:row-reverse}
+.msg-avatar{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.msg.ai .msg-avatar{background:rgba(110,231,183,.15);color:var(--accent)}
+.msg.user .msg-avatar{background:rgba(129,140,248,.15);color:var(--accent2)}
+.msg-bubble{max-width:72%;padding:12px 16px;border-radius:var(--radius);font-size:14px;line-height:1.65}
+.msg.ai .msg-bubble{background:var(--surface);border:1px solid var(--border)}
+.msg.user .msg-bubble{background:rgba(129,140,248,.12);border:1px solid rgba(129,140,248,.2);text-align:right}
+.msg-bubble p{margin-bottom:8px}
+.msg-bubble p:last-child{margin-bottom:0}
+.msg-bubble strong{color:var(--accent);font-weight:600}
+.msg-bubble ul,.msg-bubble ol{padding-left:18px;margin-bottom:8px}
+.msg-bubble li{margin-bottom:4px}
+.msg-bubble code{background:var(--surface2);padding:1px 6px;border-radius:4px;font-size:13px;font-family:monospace}
+.chat-input-area{padding:16px 24px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.chat-input-row{display:flex;gap:10px;align-items:flex-end}
+.chat-textarea{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;resize:none;min-height:44px;max-height:120px;transition:border-color .15s}
+.chat-textarea:focus{outline:none;border-color:var(--accent2)}
+.chat-textarea::placeholder{color:var(--text3)}
+.send-btn{width:44px;height:44px;border-radius:var(--radius-sm);background:var(--accent2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.send-btn:hover{background:#6366f1}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.quick-btns{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.quick-btn{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.quick-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+/* ── SUMMARY SCREEN ── */
+.content-screen{flex-direction:column;overflow:hidden}
+.content-header{padding:20px 28px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;flex-shrink:0}
+.content-header h2{font-family:'Syne',sans-serif;font-weight:700;font-size:20px;flex:1}
+.content-body{flex:1;overflow-y:auto;padding:28px}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+.summary-card h3{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:12px;color:var(--accent)}
+.summary-card ul{list-style:none;padding:0}
+.summary-card ul li{padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.6;display:flex;gap:10px}
+.summary-card ul li:last-child{border-bottom:none}
+.summary-card ul li::before{content:'→';color:var(--accent2);flex-shrink:0}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:12px;color:var(--text2);padding:40px}
+.empty-state .empty-icon{font-size:48px;margin-bottom:8px}
+.empty-state p{text-align:center;max-width:300px;line-height:1.6}
+/* ── QUIZ SCREEN ── */
+.quiz-list{display:flex;flex-direction:column;gap:16px}
+.quiz-q{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.quiz-q .q-text{font-size:15px;font-weight:500;margin-bottom:16px;line-height:1.5}
+.quiz-q .q-num{font-size:12px;color:var(--accent2);font-weight:600;margin-bottom:6px}
+.options{display:flex;flex-direction:column;gap:8px}
+.option{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all .15s;font-size:14px;background:none;color:var(--text);font-family:'DM Sans',sans-serif;text-align:left;width:100%}
+.option:hover{border-color:var(--accent2);background:rgba(129,140,248,.05)}
+.option.selected{border-color:var(--accent2);background:rgba(129,140,248,.1);color:var(--accent2)}
+.option.correct{border-color:var(--success);background:rgba(52,211,153,.1);color:var(--success)}
+.option.wrong{border-color:var(--danger);background:rgba(248,113,113,.1);color:var(--danger)}
+.option-letter{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.quiz-result{margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;display:none}
+.quiz-result.show{display:block}
+.quiz-result.correct{background:rgba(52,211,153,.1);color:var(--success);border:1px solid rgba(52,211,153,.25)}
+.quiz-result.wrong{background:rgba(248,113,113,.1);color:var(--danger);border:1px solid rgba(248,113,113,.25)}
+/* ── SCORE BANNER ── */
+.score-banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px}
+.score-circle{width:64px;height:64px;border-radius:50%;background:rgba(110,231,183,.1);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--accent);flex-shrink:0}
+.score-text h3{font-family:'Syne',sans-serif;font-weight:700;font-size:18px}
+.score-text p{font-size:13px;color:var(--text2);margin-top:4px}
+/* ── LOADING ── */
+.loading-dots{display:inline-flex;gap:4px;align-items:center;padding:4px 0}
+.loading-dots span{width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:bounce .8s infinite}
+.loading-dots span:nth-child(2){animation-delay:.15s}
+.loading-dots span:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+/* ── PROGRESS BAR ── */
+.progress-bar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:2px;transition:width .3s}
+/* ── TOPBAR TABS ── */
+.tab-bar{display:flex;gap:4px;padding:0 4px}
+.tab{padding:6px 14px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;color:var(--text2);transition:all .15s;border:none;background:none;font-family:'DM Sans',sans-serif}
+.tab:hover{color:var(--text);background:var(--surface2)}
+.tab.active{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+/* ── TOOLTIP ── */
+.tooltip{position:relative}
+.tooltip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1e2330;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 10px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}
+.tooltip:hover::after{opacity:1}
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* ── MOBILE ── */
+@media(max-width:680px){
+  .app{grid-template-columns:1fr;grid-template-rows:60px auto 1fr}
+  .sidebar{grid-row:2;height:auto;border-right:none;border-bottom:1px solid var(--border);flex-direction:row;overflow-x:auto}
+  .sidebar-docs{display:none}
+  .sidebar-section{display:none}
+  .main{grid-row:3}
+  .upload-card{padding:40px 24px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">Study<span>Mind</span></div>
+    <div class="tab-bar" id="tabBar">
+      <button class="tab active" onclick="switchTab('upload')">📂 Library</button>
+      <button class="tab" onclick="switchTab('chat')" id="tabChat">💬 Chat</button>
+      <button class="tab" onclick="switchTab('summary')" id="tabSummary">📄 Summary</button>
+      <button class="tab" onclick="switchTab('quiz')" id="tabQuiz">📝 Quiz</button>
+    </div>
+    <div class="topbar-right">
+      <span class="badge" id="statusBadge">No document loaded</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">Documents</div>
+    <div class="sidebar-docs" id="sidebarDocs">
+      <div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">
+        Upload a document to get started
+      </div>
+    </div>
+    <div style="padding:12px;border-top:1px solid var(--border)">
+      <label class="btn btn-secondary" style="width:100%;justify-content:center;cursor:pointer">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+        Upload Document
+        <input type="file" accept=".pdf,.txt,.md" style="display:none" id="sidebarFileInput" onchange="handleFileUpload(this.files[0])"/>
+      </label>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ── UPLOAD / LIBRARY SCREEN ── -->
+    <div class="screen active upload-screen" id="screenUpload">
+      <div class="upload-card" id="dropZone">
+        <input type="file" class="upload-input" accept=".pdf,.txt,.md" id="mainFileInput" onchange="handleFileUpload(this.files[0])"/>
+        <div class="upload-icon">🎓</div>
+        <div class="upload-title">Drop Your Study Material</div>
+        <div class="upload-sub">Upload a PDF, TXT, or Markdown file and start chatting with it using AI</div>
+        <span class="btn btn-primary">Choose File</span>
+        <div class="upload-formats">
+          <span class="format-tag">📄 PDF</span>
+          <span class="format-tag">📝 TXT</span>
+          <span class="format-tag">📋 Markdown</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CHAT SCREEN ── -->
+    <div class="screen" id="screenChat">
+      <div class="chat-header">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(110,231,183,.15);display:flex;align-items:center;justify-content:center;font-size:18px">📖</div>
+        <div>
+          <div class="chat-header-doc" id="chatDocName">Document</div>
+          <div class="chat-header-sub" id="chatDocMeta">Ready to answer questions</div>
+        </div>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg ai">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble">
+            <p>Hello! I've loaded your document. Ask me anything about it — explanations, key concepts, comparisons, or anything else you need. 📚</p>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="quick-btns">
+          <button class="quick-btn" onclick="quickAsk('Give me a brief overview of this document')">📋 Overview</button>
+          <button class="quick-btn" onclick="quickAsk('What are the main topics covered?')">🗂️ Main Topics</button>
+          <button class="quick-btn" onclick="quickAsk('What are the most important concepts I should remember?')">💡 Key Concepts</button>
+          <button class="quick-btn" onclick="quickAsk('Can you give me a simple explanation suitable for a beginner?')">🌱 Simplify</button>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="chat-textarea" id="chatInput" placeholder="Ask anything about your document…" rows="1"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
+            oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SUMMARY SCREEN ── -->
+    <div class="screen" id="screenSummary">
+      <div class="content-header">
+        <h2>📄 Smart Summary</h2>
+        <button class="btn btn-primary" onclick="generateSummary()" id="summaryBtn">Generate Summary</button>
+      </div>
+      <div class="content-body" id="summaryBody">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <p>Select a document and click "Generate Summary" to get a structured breakdown of your study material.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── QUIZ SCREEN ── -->
+    <div class="screen" id="screenQuiz">
+      <div class="content-header">
+        <h2>📝 Quiz Generator</h2>
+        <div style="display:flex;gap:8px">
+          <select id="quizCount" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:13px;font-family:'DM Sans',sans-serif">
+            <option value="3">3 Questions</option>
+            <option value="5" selected>5 Questions</option>
+            <option value="8">8 Questions</option>
+          </select>
+          <button class="btn btn-primary" onclick="generateQuiz()" id="quizBtn">Generate Quiz</button>
+        </div>
+      </div>
+      <div class="content-body" id="quizBody">
+        <div class="empty-state">
+          <div class="empty-icon">🧠</div>
+          <p>Select a document and click "Generate Quiz" to test your understanding with AI-generated questions.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────
+const state = {
+  docs: [],           // [{id, name, text, chars}]
+  currentDoc: null,
+  chatHistory: [],
+  currentTab: 'upload',
+  quizData: null,
+  userAnswers: {}
+};
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─── FILE UPLOAD ───────────────────────────────────────────────
+async function handleFileUpload(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  let text = '';
+
+  showToast('Reading file…', 'info');
+
+  try {
+    if (ext === 'pdf') {
+      text = await extractPDF(file);
+    } else {
+      text = await readTextFile(file);
+    }
+  } catch(e) {
+    showToast('Could not read file: ' + e.message, 'error');
+    return;
+  }
+
+  if (!text.trim()) { showToast('File appears to be empty or unreadable.', 'error'); return; }
+
+  const doc = { id: Date.now(), name: file.name, text: text.trim(), chars: text.length };
+  state.docs.push(doc);
+  selectDoc(doc);
+  renderSidebar();
+  switchTab('chat');
+  showToast('Document loaded! Start chatting 🎉', 'success');
+}
+
+async function extractPDF(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let out = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    out += content.items.map(s => s.str).join(' ') + '\n';
+  }
+  return out;
+}
+
+function readTextFile(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = () => rej(new Error('FileReader error'));
+    r.readAsText(file);
+  });
+}
+
+function selectDoc(doc) {
+  state.currentDoc = doc;
+  state.chatHistory = [];
+  state.quizData = null;
+  state.userAnswers = {};
+  document.getElementById('chatDocName').textContent = doc.name;
+  document.getElementById('chatDocMeta').textContent = `${formatSize(doc.chars)} characters loaded`;
+  document.getElementById('statusBadge').textContent = doc.name.length > 22 ? doc.name.slice(0,22)+'…' : doc.name;
+  // Reset chat
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="msg ai">
+      <div class="msg-avatar">🤖</div>
+      <div class="msg-bubble">
+        <p>I've loaded <strong>${doc.name}</strong>. Ask me anything about it! 📚</p>
+      </div>
+    </div>`;
+  // Reset summary/quiz
+  document.getElementById('summaryBody').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Click "Generate Summary" to get a structured breakdown.</p></div>`;
+  document.getElementById('quizBody').innerHTML = `<div class="empty-state"><div class="empty-icon">🧠</div><p>Click "Generate Quiz" to test your understanding.</p></div>`;
+  renderSidebar();
+}
+
+function formatSize(chars) {
+  if (chars < 1000) return chars + ' chars';
+  return (chars/1000).toFixed(1) + 'k chars';
+}
+
+// ─── SIDEBAR ──────────────────────────────────────────────────
+function renderSidebar() {
+  const el = document.getElementById('sidebarDocs');
+  if (!state.docs.length) {
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Upload a document to get started</div>';
+    return;
+  }
+  el.innerHTML = state.docs.map(d => `
+    <div class="doc-item ${state.currentDoc?.id===d.id?'selected':''}" onclick="selectDoc(${JSON.stringify(d).replace(/"/g,'&quot;')})">
+      <div class="doc-icon">📄</div>
+      <div class="doc-info">
+        <div class="doc-name">${d.name}</div>
+        <div class="doc-meta">${formatSize(d.chars)}</div>
+      </div>
+      <button class="doc-delete" onclick="event.stopPropagation();deleteDoc(${d.id})" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function deleteDoc(id) {
+  state.docs = state.docs.filter(d => d.id !== id);
+  if (state.currentDoc?.id === id) {
+    state.currentDoc = state.docs[0] || null;
+    if (!state.currentDoc) {
+      document.getElementById('statusBadge').textContent = 'No document loaded';
+      switchTab('upload');
+    } else selectDoc(state.currentDoc);
+  }
+  renderSidebar();
+}
+
+// ─── DRAG & DROP ──────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]); });
+
+// ─── TABS ─────────────────────────────────────────────────────
+function switchTab(name) {
+  if ((name !== 'upload') && !state.currentDoc) {
+    showToast('Please upload a document first', 'warn'); return;
+  }
+  state.currentTab = name;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  const idx = ['upload','chat','summary','quiz'].indexOf(name);
+  document.querySelectorAll('.tab')[idx]?.classList.add('active');
+}
+
+// ─── CHAT ─────────────────────────────────────────────────────
+async function sendMessage(override) {
+  const input = document.getElementById('chatInput');
+  const msg = (override || input.value).trim();
+  if (!msg || !state.currentDoc) return;
+
+  if (!override) input.value = '';
+  autoResize(input);
+  appendMsg('user', msg);
+  document.getElementById('sendBtn').disabled = true;
+
+  const typing = appendTyping();
+  state.chatHistory.push({ role: 'user', content: msg });
+
+  // Truncate doc text for context (fit in token budget)
+  const docText = state.currentDoc.text.slice(0, 18000);
+
+  try {
+    const body = {
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: `You are StudyMind, a helpful AI study assistant. The student has uploaded a document. Answer questions based on the document content. Be clear, concise, and educational. Use bullet points, bold text, and structured formatting when helpful.\n\nDOCUMENT CONTENT:\n\n${docText}`,
+      messages: state.chatHistory
+    };
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    typing.remove();
+
+    if (data.error) throw new Error(data.error.message);
+
+    const reply = data.content.map(b => b.text || '').join('');
+    state.chatHistory.push({ role: 'assistant', content: reply });
+    appendMsg('ai', reply);
+  } catch(e) {
+    typing.remove();
+    appendMsg('ai', `⚠️ Error: ${e.message}. Please check that you're running this through the Claude.ai platform.`);
+    state.chatHistory.pop();
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  scrollChat();
+}
+
+function quickAsk(q) {
+  switchTab('chat');
+  sendMessage(q);
+}
+
+function appendMsg(role, text) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  el.innerHTML = `
+    <div class="msg-avatar">${role==='ai'?'🤖':'👤'}</div>
+    <div class="msg-bubble">${formatMsg(text)}</div>`;
+  document.getElementById('chatMessages').appendChild(el);
+  scrollChat();
+  return el;
+}
+
+function appendTyping() {
+  const el = document.createElement('div');
+  el.className = 'msg ai';
+  el.innerHTML = `<div class="msg-avatar">🤖</div><div class="msg-bubble"><div class="loading-dots"><span></span><span></span><span></span></div></div>`;
+  document.getElementById('chatMessages').appendChild(el);
+  scrollChat();
+  return el;
+}
+
+function formatMsg(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`(.+?)`/g,'<code>$1</code>')
+    .replace(/^## (.+)$/gm,'<strong style="font-size:15px;display:block;margin-top:10px">$1</strong>')
+    .replace(/^### (.+)$/gm,'<strong style="display:block;margin-top:8px">$1</strong>')
+    .replace(/^\* (.+)$/gm,'<li>$1</li>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>')
+    .replace(/(<li>.*<\/li>(\n|$))+/g, s => `<ul>${s}</ul>`)
+    .replace(/\n\n+/g,'</p><p>')
+    .replace(/\n/g,'<br>')
+    .replace(/^(.)/,'<p>$1').replace(/(.)$/,'$1</p>');
+}
+
+function scrollChat() {
+  const c = document.getElementById('chatMessages');
+  setTimeout(() => c.scrollTop = c.scrollHeight, 50);
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ─── SUMMARY ──────────────────────────────────────────────────
+async function generateSummary() {
+  if (!state.currentDoc) { showToast('No document loaded', 'warn'); return; }
+  const btn = document.getElementById('summaryBtn');
+  btn.textContent = 'Generating…'; btn.disabled = true;
+
+  const docText = state.currentDoc.text.slice(0, 20000);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: 'You are a study assistant. Summarize the document into sections. Respond ONLY with valid JSON, no markdown, no preamble. Format: {"sections":[{"title":"string","points":["string"]}]}. Create 3-5 sections with 3-5 bullet points each.',
+        messages: [{ role: 'user', content: `Summarize this document:\n\n${docText}` }]
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    let raw = data.content.map(b => b.text || '').join('').replace(/```json|```/g,'').trim();
+    const summary = JSON.parse(raw);
+    renderSummary(summary);
+  } catch(e) {
+    document.getElementById('summaryBody').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to generate summary: ${e.message}</p></div>`;
+  }
+
+  btn.textContent = 'Regenerate'; btn.disabled = false;
+}
+
+function renderSummary(data) {
+  const html = data.sections.map(s => `
+    <div class="summary-card">
+      <h3>${s.title}</h3>
+      <ul>${s.points.map(p => `<li>${p}</li>`).join('')}</ul>
+    </div>`).join('');
+  document.getElementById('summaryBody').innerHTML = html;
+}
+
+// ─── QUIZ ─────────────────────────────────────────────────────
+async function generateQuiz() {
+  if (!state.currentDoc) { showToast('No document loaded', 'warn'); return; }
+  const btn = document.getElementById('quizBtn');
+  const count = parseInt(document.getElementById('quizCount').value);
+  btn.textContent = 'Generating…'; btn.disabled = true;
+  state.userAnswers = {};
+
+  const docText = state.currentDoc.text.slice(0, 20000);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are a quiz generator. Create exactly ${count} MCQ questions from the document. Respond ONLY with valid JSON, no markdown, no extra text. Format: {"questions":[{"question":"string","options":["A. string","B. string","C. string","D. string"],"answer":"A","explanation":"string"}]}`,
+        messages: [{ role: 'user', content: `Create ${count} MCQ questions from:\n\n${docText}` }]
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    let raw = data.content.map(b => b.text || '').join('').replace(/```json|```/g,'').trim();
+    state.quizData = JSON.parse(raw);
+    renderQuiz();
+  } catch(e) {
+    document.getElementById('quizBody').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>Failed to generate quiz: ${e.message}</p></div>`;
+  }
+
+  btn.textContent = 'Regenerate'; btn.disabled = false;
+}
+
+function renderQuiz() {
+  if (!state.quizData) return;
+  const answered = Object.keys(state.userAnswers).length;
+  const total = state.quizData.questions.length;
+  let scoreBanner = '';
+  if (answered === total && total > 0) {
+    const correct = state.quizData.questions.filter((q,i) => state.userAnswers[i] === q.answer).length;
+    const pct = Math.round((correct/total)*100);
+    scoreBanner = `<div class="score-banner">
+      <div class="score-circle">${pct}%</div>
+      <div class="score-text"><h3>Score: ${correct}/${total}</h3><p>${pct>=80?'Excellent work! 🎉':pct>=60?'Good job! Keep studying 📚':'Keep practicing! 💪'}</p>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div>
+    </div>`;
+  }
+  const qHtml = state.quizData.questions.map((q, qi) => {
+    const selected = state.userAnswers[qi];
+    const letters = ['A','B','C','D'];
+    const opts = q.options.map((opt, oi) => {
+      const letter = letters[oi];
+      let cls = '';
+      if (selected) {
+        if (letter === q.answer) cls = 'correct';
+        else if (letter === selected) cls = 'wrong';
+      } else if (letter === selected) cls = 'selected';
+      return `<button class="option ${cls}" onclick="answerQuiz(${qi},'${letter}')" ${selected?'disabled':''}>
+        <span class="option-letter">${letter}</span>${opt.replace(/^[A-D]\.\s*/,'')}
+      </button>`;
+    }).join('');
+    let resultHtml = '';
+    if (selected) {
+      const correct = selected === q.answer;
+      resultHtml = `<div class="quiz-result show ${correct?'correct':'wrong'}">
+        ${correct?'✅ Correct!':'❌ Wrong. Correct answer: ' + q.answer} — ${q.explanation||''}
+      </div>`;
+    }
+    return `<div class="quiz-q">
+      <div class="q-num">Question ${qi+1} of ${total}</div>
+      <div class="q-text">${q.question}</div>
+      <div class="options">${opts}</div>
+      ${resultHtml}
+    </div>`;
+  }).join('');
+
+  document.getElementById('quizBody').innerHTML = scoreBanner + `<div class="quiz-list">${qHtml}</div>`;
+}
+
+function answerQuiz(qi, letter) {
+  state.userAnswers[qi] = letter;
+  renderQuiz();
+  document.getElementById('quizBody').querySelectorAll('.quiz-q')[qi]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ─── TOAST ────────────────────────────────────────────────────
+function showToast(msg, type='info') {
+  const t = document.createElement('div');
+  const colors = { info:'var(--accent2)', success:'var(--success)', error:'var(--danger)', warn:'var(--accent3)' };
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid ${colors[type]};color:var(--text);padding:12px 20px;border-radius:var(--radius-sm);font-size:14px;z-index:1000;animation:fadeIn .2s;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4)`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Love & Compliment Confetti 💖</title>
+<style>
+  :root {
+    --bg-dark: #0d0814;
+    --heart-colors: #ff6b9d, #e8396a, #ffd6e7, #c9b1ff, #ff8fc1;
+  }
+  body {
+    margin:0;
+    padding:0;
+    overflow: hidden;
+    background: var(--bg-dark);
+    font-family: 'Lato', sans-serif;
+    cursor: pointer;
+  }
+  .confetti {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999;
+    font-size: 20px;
+    will-change: transform;
+    user-select: none;
+    opacity: 0;
+    animation: floatUp linear forwards;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-100vh) scale(0.5); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<script>
+  const MESSAGES = [
+    "You're amazing! 💖", "Love you sooo much! 💕", "Sweetheart! 🥰", 
+    "You're the best! 🌸", "My sunshine ☀️", "Cutie Pie 😘",
+    "Forever mine ❤️", "You're adorable 💗", "Sparkle like a star ✨",
+    "My everything 💞"
+  ];
+
+  const EMOJIS = ["💖","💕","🌸","💗","✨","💝","❤️","🥰","💞"];
+
+  function randomFromArray(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function spawnConfetti(x, y) {
+    const count = 15;
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement("div");
+      el.className = "confetti";
+      const isText = Math.random() < 0.6; // 60% chance text, 40% emoji
+      el.textContent = isText ? randomFromArray(MESSAGES) : randomFromArray(EMOJIS);
+      el.style.left = x + (Math.random() * 60 - 30) + "px";
+      el.style.top  = y + (Math.random() * 20 - 10) + "px";
+      el.style.color = `hsl(${Math.random()*360}, 80%, 70%)`;
+      el.style.fontSize = (12 + Math.random()*16) + "px";
+      el.style.animationDuration = (2 + Math.random()*2) + "s";
+      el.style.animationDelay = (Math.random()*0.3) + "s";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }
+  }
+
+  window.addEventListener("click", e => {
+    spawnConfetti(e.clientX, e.clientY);
+  });
+
+  // Optional: Floating hearts from mouse
+  window.addEventListener("mousemove", e => {
+    if (Math.random() < 0.02) { // 2% chance per move
+      spawnConfetti(e.clientX, e.clientY);
+    }
+  });
+</script>
+</body>
+</html>

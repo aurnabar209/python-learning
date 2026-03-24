@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Constellation | Secure Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: #0f172a;
+            font-family: 'Inter', sans-serif;
+            color: white;
+            height: 100svh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        ::selection { background: #38bdf8; color: white; }
+
+        #particle-canvas {
+            position: fixed; inset: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+        }
+
+        #login-container {
+            position: relative; z-index: 10;
+            perspective: 1000px;
+            width: 100%; max-width: 420px;
+            padding: 16px;
+        }
+
+        /* YOUR original glassmorphism card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            padding: 36px 32px;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 30px #1e293b inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* Header */
+        .card-header { text-align: center; margin-bottom: 28px; }
+        .lock-wrap {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 48px; height: 48px; border-radius: 50%;
+            background: rgba(56,189,248,0.1);
+            border: 1px solid rgba(56,189,248,0.3);
+            margin-bottom: 14px;
+        }
+        .lock-wrap svg { width: 22px; height: 22px; color: #38bdf8; }
+        .card-header h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px; font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+        .card-header p { color: #94a3b8; font-size: 13px; margin-top: 4px; }
+
+        /* Alert */
+        .alert {
+            display: none; align-items: center; gap: 10px;
+            padding: 11px 14px; border-radius: 10px;
+            font-size: 13px; line-height: 1.4; margin-bottom: 18px;
+        }
+        .alert.visible { display: flex; }
+        .alert-error  { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+        .alert-success{ background: rgba(34,197,94,.10); border: 1px solid rgba(34,197,94,.25); color: #86efac; }
+        .alert svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+        /* Lockout */
+        .lockout-panel {
+            display: none; flex-direction: column; align-items: center;
+            gap: 8px; padding: 16px 0 8px; text-align: center;
+        }
+        .lockout-panel.visible { display: flex; }
+        .lockout-emoji { font-size: 36px; }
+        .lockout-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: #fca5a5; }
+        .lockout-sub   { font-size: 13px; color: #64748b; }
+        .lockout-timer { font-family: 'Space Grotesk', sans-serif; font-size: 36px; font-weight: 700; color: white; letter-spacing: -0.04em; margin-top: 4px; }
+
+        /* Attempt dots */
+        .attempts-bar { display: none; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 12px; color: #f87171; }
+        .attempts-bar.visible { display: flex; }
+        .dot-row { display: flex; gap: 4px; }
+        .attempt-dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; transition: background .3s; }
+        .attempt-dot.used { background: #f87171; }
+
+        /* YOUR original floating label inputs */
+        .input-group { position: relative; margin-bottom: 20px; }
+        .input-group input {
+            display: block; width: 100%;
+            padding: 12px 42px 12px 16px;
+            background: rgba(30,41,59,0.5);
+            border: 1px solid #334155; border-radius: 10px;
+            color: white; font-family: 'Inter', sans-serif; font-size: 15px;
+            outline: none; transition: border-color .2s, box-shadow .2s;
+        }
+        .input-group input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+        }
+        .input-group input.invalid {
+            border-color: #f87171;
+            box-shadow: 0 0 0 3px rgba(248,113,113,0.12);
+        }
+
+        /* YOUR original floating label */
+        .float-label {
+            position: absolute; left: 16px; top: 12px;
+            color: #64748b; font-size: 15px;
+            pointer-events: none; transform-origin: left center;
+            transition: transform .2s ease-out, color .2s;
+        }
+        .input-group input:focus ~ .float-label,
+        .input-group input:not(:placeholder-shown) ~ .float-label {
+            transform: translateY(-24px) scale(0.82);
+            color: #38bdf8;
+        }
+
+        .input-btn {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: #64748b; cursor: pointer;
+            padding: 4px; display: grid; place-items: center; transition: color .2s;
+        }
+        .input-btn:hover { color: #38bdf8; }
+        .input-btn svg { width: 18px; height: 18px; }
+
+        /* Field errors */
+        .field-error { display: none; align-items: center; gap: 5px; font-size: 11px; color: #f87171; margin-top: -14px; margin-bottom: 14px; padding-left: 4px; }
+        .field-error.visible { display: flex; }
+        .field-error svg { width: 12px; height: 12px; }
+
+        /* Row */
+        .form-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
+        .remember-label { display: flex; align-items: center; gap: 8px; color: #94a3b8; cursor: pointer; }
+        .remember-label input[type=checkbox] { width: 14px; height: 14px; accent-color: #38bdf8; cursor: pointer; }
+        .forgot-link { color: #38bdf8; text-decoration: none; transition: opacity .2s; }
+        .forgot-link:hover { opacity: 0.7; }
+
+        /* YOUR original gradient submit button */
+        .submit-btn {
+            width: 100%; padding: 13px;
+            background: linear-gradient(to right, #0ea5e9, #2563eb);
+            border: none; border-radius: 10px; color: white;
+            font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 4px 24px rgba(14,165,233,0.3);
+            transition: opacity .2s, transform .1s, background .4s, box-shadow .3s;
+            letter-spacing: -0.01em;
+            position: relative;
+        }
+        .submit-btn:hover:not(:disabled) {
+            background: linear-gradient(to right, #38bdf8, #3b82f6);
+            box-shadow: 0 4px 32px rgba(56,189,248,0.4);
+        }
+        .submit-btn:active:not(:disabled) { transform: scale(0.99); }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .submit-btn.success {
+            background: linear-gradient(to right, #10b981, #059669) !important;
+            box-shadow: 0 4px 24px rgba(16,185,129,0.35) !important;
+        }
+
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius: 50%;
+            animation: spin .7s linear infinite; display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .submit-btn.loading .spinner { display: block; }
+        .submit-btn.loading .btn-label { display: none; }
+
+        /* Security badges */
+        .security-badges { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 18px; }
+        .sec-badge { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #475569; }
+        .sec-badge svg { width: 11px; height: 11px; color: #38bdf8; }
+
+        /* Footer */
+        .card-footer { text-align: center; margin-top: 20px; font-size: 11px; color: #334155; }
+
+        /* 2FA Modal (glass style to match) */
+        .mfa-overlay {
+            position: fixed; inset: 0; z-index: 100;
+            background: rgba(15,23,42,0.7);
+            backdrop-filter: blur(8px);
+            display: none; place-items: center;
+        }
+        .mfa-overlay.visible { display: grid; }
+        .mfa-card {
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+            border-radius: 16px; padding: 32px 28px;
+            width: 320px; text-align: center;
+            animation: cardIn .35s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes cardIn { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+        .mfa-card h3 { font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; letter-spacing:-0.03em; margin-bottom:6px; }
+        .mfa-card p  { font-size:13px; color:#64748b; margin-bottom:20px; }
+        .otp-row { display:flex; gap:8px; justify-content:center; margin-bottom:18px; }
+        .otp-digit {
+            width:42px; height:50px;
+            background:rgba(30,41,59,0.6); border:1px solid #334155; border-radius:10px;
+            text-align:center; font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700;
+            color:white; outline:none; transition:border-color .2s, box-shadow .2s; caret-color:#38bdf8;
+        }
+        .otp-digit:focus { border-color:#38bdf8; box-shadow:0 0 0 3px rgba(56,189,248,0.15); }
+        .otp-submit {
+            width:100%; padding:12px;
+            background:linear-gradient(to right,#0ea5e9,#2563eb);
+            border:none; border-radius:10px; color:white;
+            font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
+            cursor:pointer; box-shadow:0 4px 18px rgba(14,165,233,0.3); transition:opacity .2s;
+        }
+        .otp-submit:hover { opacity:0.85; }
+        .otp-resend { font-size:12px; color:#475569; margin-top:12px; }
+        .otp-resend a { color:#38bdf8; text-decoration:none; cursor:pointer; }
+    </style>
+</head>
+<body>
+
+<!-- YOUR original particle canvas -->
+<canvas id="particle-canvas"></canvas>
+
+<!-- 2FA Modal -->
+<div class="mfa-overlay" id="mfa-overlay" role="dialog" aria-modal="true">
+    <div class="mfa-card">
+        <div style="font-size:30px;margin-bottom:10px">🔐</div>
+        <h3>Verify It's You</h3>
+        <p>Enter the 6-digit code sent to your email</p>
+        <div class="otp-row">
+            <input class="otp-digit" maxlength="1" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1">
+            <input class="otp-digit" maxlength="1" inputmode="numeric" aria-label="Digit 2">
+            <input class="otp-digit" maxlength="1" inputmode="numeric" aria-label="Digit 3">
+            <input class="otp-digit" maxlength="1" inputmode="numeric" aria-label="Digit 4">
+            <input class="otp-digit" maxlength="1" inputmode="numeric" aria-label="Digit 5">
+            <input class="otp-digit" maxlength="1" inputmode="numeric" aria-label="Digit 6">
+        </div>
+        <button class="otp-submit" onclick="verify2FA()">Verify Code</button>
+        <p class="otp-resend">Didn't receive it? <a onclick="resendOTP()">Resend code</a></p>
+    </div>
+</div>
+
+<!-- Login -->
+<div id="login-container">
+    <div id="tilt-card" class="glass-card">
+
+        <div class="card-header">
+            <div class="lock-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+            </div>
+            <h2>Welcome Back</h2>
+            <p>Enter the client portal</p>
+        </div>
+
+        <!-- Lockout -->
+        <div class="lockout-panel" id="lockout-panel">
+            <div class="lockout-emoji">🔒</div>
+            <div class="lockout-title">Account Temporarily Locked</div>
+            <div class="lockout-sub">Too many failed attempts. Try again in</div>
+            <div class="lockout-timer" id="lockout-timer">5:00</div>
+        </div>
+
+        <!-- Form -->
+        <form id="login-form" novalidate autocomplete="on">
+
+            <!-- Global error banner -->
+            <div class="alert alert-error" id="global-error" role="alert" aria-live="assertive">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span id="global-error-msg">Invalid email or password.</span>
+            </div>
+
+            <!-- Attempt tracker -->
+            <div class="attempts-bar" id="attempts-bar" aria-live="polite">
+                <div class="dot-row">
+                    <div class="attempt-dot" id="dot-1"></div>
+                    <div class="attempt-dot" id="dot-2"></div>
+                    <div class="attempt-dot" id="dot-3"></div>
+                    <div class="attempt-dot" id="dot-4"></div>
+                    <div class="attempt-dot" id="dot-5"></div>
+                </div>
+                <span id="attempts-text">4 attempts remaining</span>
+            </div>
+
+            <!-- Email -->
+            <div class="input-group">
+                <input type="email" id="email" name="email" autocomplete="email"
+                    placeholder=" " aria-label="Email address"
+                    aria-describedby="email-err" required>
+                <label class="float-label" for="email">Email Address</label>
+                <span class="input-btn" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                </span>
+            </div>
+            <div class="field-error" id="email-err" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Please enter a valid email address.
+            </div>
+
+            <!-- Password -->
+            <div class="input-group">
+                <input type="password" id="password" name="password" autocomplete="current-password"
+                    placeholder=" " aria-label="Password"
+                    aria-describedby="pw-err" required>
+                <label class="float-label" for="password">Password</label>
+                <button type="button" class="input-btn" id="pw-toggle" aria-label="Show password" onclick="togglePw()">
+                    <svg id="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg id="eye-closed" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="field-error" id="pw-err" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Password must be at least 8 characters.
+            </div>
+
+            <!-- Row -->
+            <div class="form-row">
+                <label class="remember-label">
+                    <input type="checkbox" id="remember" name="remember" autocomplete="off">
+                    Remember me
+                </label>
+                <a href="/forgot-password" class="forgot-link">Forgot password?</a>
+            </div>
+
+            <!-- Submit (YOUR original gradient) -->
+            <button type="submit" class="submit-btn" id="submit-btn" aria-label="Sign in">
+                <div class="spinner"></div>
+                <span class="btn-label">Sign In</span>
+            </button>
+
+        </form>
+
+        <!-- Security badges -->
+        <div class="security-badges">
+            <span class="sec-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                TLS 1.3
+            </span>
+            <span class="sec-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                CSRF Safe
+            </span>
+            <span class="sec-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Rate Limited
+            </span>
+        </div>
+
+    </div>
+    <div class="card-footer">&copy; 2025 Client Constellation Inc. All rights reserved.</div>
+</div>
+
+<script>
+/* ================================================================
+   YOUR ORIGINAL PARTICLE ENGINE — completely untouched
+   ================================================================ */
+const CLIENT_NAMES = [
+    "Aurnab", "Swarup", "Sunehra", "Sunjeeda", "Farhan", "Rakhin", "Rakib", "Tanvir",
+    "Shahin", "Mamun", "Rubel", "Limon", "Milon", "Sumon", "Tuhin", "Jewel",
+    "Rony", "Sohel", "Nahid", "Imran", "Arif", "Rasel", "Sagor", "Polash",
+    "Dipu", "Babu", "Raju", "Shakil", "Zahid", "Habib", "Masud", "Ripon",
+    "Forhad", "Helal", "Tomal", "Bipul", "Rajib", "Uzzal", "Nayan", "Asif",
+    "Tasnim", "Sumaiya", "Nadia", "Bristy", "Mitu", "Ritu", "Popy", "Meem",
+    "Tania", "Sadia", "Lamia", "Fahmida", "Nusrat", "Reshma", "Kulsum", "Poly",
+    "Shanta", "Mukta", "Mithu", "Rima", "Lima", "Piya", "Dola", "Moni",
+    "Sharmin", "Nasrin", "Parvin", "Farzana", "Shamima", "Dilruba", "Khadija", "Halima",
+    "Ayesha", "Fatema", "Rojina", "Shefa", "Surovi", "Bristy", "Jerin", "Meherun"
+];
+
+const canvas = document.getElementById('particle-canvas');
+const ctx    = canvas.getContext('2d');
+let width, height, particles = [];
+let mouse = { x: null, y: null, radius: 150 };
+
+function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+window.addEventListener('mousemove', e => { mouse.x = e.x; mouse.y = e.y; });
+window.addEventListener('mouseout',  () => { mouse.x = null; mouse.y = null; });
+
+class Particle {
+    constructor(initial = false) { this.reset(initial); }
+    reset(initial = false) {
+        this.side = Math.random() < 0.5 ? 'left' : 'right';
+        if (this.side === 'left') { this.x = -100; this.vx = Math.random() * 1.5 + 0.5; }
+        else                      { this.x = width + 100; this.vx = -(Math.random() * 1.5 + 0.5); }
+        this.y = Math.random() * height;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.text = CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)];
+        this.size = Math.random() * 14 + 10;
+        this.alpha = 0;
+        this.targetAlpha = Math.random() * 0.4 + 0.1;
+        this.fadeState = 'in';
+        const colors = ['#38bdf8','#818cf8','#c084fc','#e2e8f0','#94a3b8'];
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+        this.life = 0; this.maxLife = Math.random() * 500 + 500;
+        if (initial) { this.x = Math.random() * width; this.vx = (Math.random() - 0.5) * 1; this.alpha = this.targetAlpha; }
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy;
+        if (mouse.x != null) {
+            const dx = mouse.x - this.x, dy = mouse.y - this.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < mouse.radius) {
+                const f = (mouse.radius - dist) / mouse.radius;
+                this.x -= (dx/dist)*f*2; this.y -= (dy/dist)*f*2;
+            }
+        }
+        this.life++;
+        if (this.fadeState==='in'  && (this.alpha+=0.01)>=this.targetAlpha) this.fadeState='hold';
+        else if (this.fadeState==='hold' && this.life>this.maxLife-100)     this.fadeState='out';
+        else if (this.fadeState==='out') this.alpha-=0.01;
+        if (this.alpha<=0 && this.fadeState==='out') this.reset();
+        if (this.x<-200&&this.vx<0)        this.x=width+100;
+        if (this.x>width+200&&this.vx>0)   this.x=-100;
+        if (this.y<-50)                     this.y=height+50;
+        if (this.y>height+50)               this.y=-50;
+    }
+    draw() {
+        ctx.font=`300 ${this.size}px 'Space Grotesk'`;
+        ctx.fillStyle=this.color; ctx.globalAlpha=Math.max(0,this.alpha);
+        ctx.fillText(this.text,this.x,this.y); ctx.globalAlpha=1;
+    }
+}
+
+function initParticles() {
+    particles=[];
+    const count=Math.min(Math.floor(width/10),150);
+    for(let i=0;i<count;i++) particles.push(new Particle(true));
+}
+function animate() {
+    ctx.clearRect(0,0,width,height);
+    particles.forEach(p=>{p.update();p.draw();});
+    requestAnimationFrame(animate);
+}
+initParticles(); animate();
+
+/* ================================================================
+   YOUR ORIGINAL 3D TILT — completely untouched
+   ================================================================ */
+const loginContainer = document.getElementById('login-container');
+const tiltCard       = document.getElementById('tilt-card');
+loginContainer.addEventListener('mousemove', e => {
+    const rect = loginContainer.getBoundingClientRect();
+    const xRot = -((e.clientY - rect.top  - rect.height/2) / 20);
+    const yRot  =  (e.clientX - rect.left - rect.width /2) / 20;
+    tiltCard.style.transform = `rotateX(${xRot}deg) rotateY(${yRot}deg)`;
+});
+loginContainer.addEventListener('mouseleave', () => {
+    tiltCard.style.transform = 'rotateX(0deg) rotateY(0deg)';
+});
+
+/* ================================================================
+   SECURITY CONFIG
+   ================================================================ */
+const SEC = { MAX_ATTEMPTS:5, LOCKOUT_SECS:300, THROTTLE_MS:1000, LOCKOUT_KEY:'cc_lockout_until', ATTEMPTS_KEY:'cc_fail_count' };
+let csrfToken='', lastSubmit=0, isLocked=false, lockInterval=null;
+let failCount = parseInt(sessionStorage.getItem(SEC.ATTEMPTS_KEY)||'0');
+
+/* ================================================================
+   INIT
+   ================================================================ */
+window.addEventListener('DOMContentLoaded', () => {
+    fetchCSRF();
+    checkLockout();
+    setupOTP();
+    setupValidation();
+    updateAttemptDots(); // restore dots if page refreshed mid-lockout
+});
+
+async function fetchCSRF() {
+    try {
+        const r = await fetch('/api/csrf-token', { credentials:'same-origin' });
+        csrfToken = (await r.json()).csrfToken || '';
+    } catch { csrfToken = 'dev-csrf'; } // fallback for dev without backend
+}
+
+/* ================================================================
+   LOCKOUT
+   ================================================================ */
+function checkLockout() {
+    const until = parseInt(localStorage.getItem(SEC.LOCKOUT_KEY)||'0');
+    if (until > Date.now()) startLockout(Math.ceil((until - Date.now())/1000));
+}
+function startLockout(seconds) {
+    isLocked = true;
+    document.getElementById('lockout-panel').classList.add('visible');
+    document.getElementById('login-form').style.display = 'none';
+    clearInterval(lockInterval);
+    let rem = seconds; setTimer(rem);
+    lockInterval = setInterval(() => {
+        rem--;
+        setTimer(rem);
+        if (rem <= 0) {
+            clearInterval(lockInterval);
+            isLocked = false; failCount = 0;
+            sessionStorage.removeItem(SEC.ATTEMPTS_KEY);
+            localStorage.removeItem(SEC.LOCKOUT_KEY);
+            document.getElementById('lockout-panel').classList.remove('visible');
+            document.getElementById('login-form').style.display = '';
+            updateAttemptDots();
+        }
+    }, 1000);
+}
+function setTimer(s) {
+    document.getElementById('lockout-timer').textContent =
+        `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+/* ================================================================
+   ATTEMPT DOTS
+   ================================================================ */
+function updateAttemptDots() {
+    const bar = document.getElementById('attempts-bar');
+    if (failCount === 0) { bar.classList.remove('visible'); return; }
+    bar.classList.add('visible');
+    for (let i=1;i<=5;i++) document.getElementById(`dot-${i}`).classList.toggle('used', i<=failCount);
+    const left = SEC.MAX_ATTEMPTS - failCount;
+    document.getElementById('attempts-text').textContent = `${left} attempt${left===1?'':'s'} remaining`;
+}
+
+/* ================================================================
+   VALIDATION
+   ================================================================ */
+function setupValidation() {
+    document.getElementById('email').addEventListener('blur', validateEmail);
+    document.getElementById('password').addEventListener('blur', () => validatePassword(true));
+}
+function validateEmail() {
+    const el=document.getElementById('email'), err=document.getElementById('email-err');
+    const ok=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value.trim());
+    const show = !ok && el.value.length > 0;
+    el.classList.toggle('invalid', show);
+    err.classList.toggle('visible', show);
+    return ok;
+}
+function validatePassword(strict=false) {
+    const el=document.getElementById('password'), err=document.getElementById('pw-err');
+    const ok = el.value.length >= 8;
+    if (strict) { el.classList.toggle('invalid',!ok&&el.value.length>0); err.classList.toggle('visible',!ok&&el.value.length>0); }
+    return ok;
+}
+function clearErrors() {
+    document.getElementById('global-error').classList.remove('visible');
+    ['email','password'].forEach(id=>{
+        document.getElementById(id).classList.remove('invalid');
+    });
+    document.getElementById('email-err').classList.remove('visible');
+    document.getElementById('pw-err').classList.remove('visible');
+}
+
+/* ================================================================
+   FORM SUBMIT — real API call
+   ================================================================ */
+document.getElementById('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (isLocked) return;
+    const now = Date.now();
+    if (now - lastSubmit < SEC.THROTTLE_MS) return;
+    lastSubmit = now;
+
+    clearErrors();
+    const emailOk = validateEmail();
+    const pwOk    = validatePassword(true);
+    if (!emailOk || !pwOk) return;
+
+    const email    = document.getElementById('email').value.trim().toLowerCase();
+    const password = document.getElementById('password').value;
+    const remember = document.getElementById('remember').checked;
+
+    setLoading(true);
+
+    try {
+        /* ── YOUR BACKEND CALL ─────────────────────────────────────
+           server.js handles: CSRF check, bcrypt compare,
+           rate limiting, httpOnly session cookie, 2FA trigger.
+           Change the URL to match your deployment.
+        ─────────────────────────────────────────────────────────── */
+        const res  = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'X-CSRF-Token': csrfToken },
+            credentials: 'same-origin',
+            body: JSON.stringify({ email, password, remember }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success && !data.require2FA) {
+            onSuccess(data.redirectUrl);
+        } else if (data.require2FA) {
+            setLoading(false);
+            show2FA();
+        } else if (res.status === 429) {
+            setLoading(false);
+            const after = data.retryAfter || SEC.LOCKOUT_SECS;
+            localStorage.setItem(SEC.LOCKOUT_KEY, Date.now() + after*1000);
+            startLockout(after);
+        } else {
+            onFailure(data.message || 'Invalid email or password.');
+        }
+    } catch {
+        setLoading(false);
+        showGlobalError('Connection error. Check your network and try again.');
+    }
+});
+
+/* ================================================================
+   OUTCOMES
+   ================================================================ */
+function onSuccess(url) {
+    const btn = document.getElementById('submit-btn');
+    btn.classList.remove('loading');
+    btn.classList.add('success');
+    btn.querySelector('.btn-label').style.display='';
+    btn.querySelector('.btn-label').textContent='✓ Authenticated';
+    failCount=0; sessionStorage.removeItem(SEC.ATTEMPTS_KEY);
+
+    // YOUR original success particle effect
+    particles.forEach(p => {
+        p.vx = (width/2 - p.x) * 0.05;
+        p.vy = (height/2 - p.y) * 0.05;
+        p.targetAlpha = 0;
+    });
+    setTimeout(() => { window.location.href = url || '/dashboard'; }, 900);
+}
+
+function onFailure(msg) {
+    setLoading(false);
+    failCount++;
+    sessionStorage.setItem(SEC.ATTEMPTS_KEY, failCount);
+    updateAttemptDots();
+    if (failCount >= SEC.MAX_ATTEMPTS) {
+        localStorage.setItem(SEC.LOCKOUT_KEY, Date.now() + SEC.LOCKOUT_SECS*1000);
+        startLockout(SEC.LOCKOUT_SECS);
+    } else {
+        showGlobalError(msg);
+    }
+}
+
+function showGlobalError(msg) {
+    document.getElementById('global-error-msg').textContent = msg;
+    document.getElementById('global-error').classList.add('visible');
+}
+
+/* ================================================================
+   2FA
+   ================================================================ */
+function show2FA() {
+    document.getElementById('mfa-overlay').classList.add('visible');
+    document.querySelector('.otp-digit').focus();
+}
+function setupOTP() {
+    const inputs = document.querySelectorAll('.otp-digit');
+    inputs.forEach((inp, i) => {
+        inp.addEventListener('input', () => {
+            inp.value = inp.value.replace(/\D/g,'');
+            if (inp.value && i < inputs.length-1) inputs[i+1].focus();
+        });
+        inp.addEventListener('keydown', e => {
+            if (e.key==='Backspace' && !inp.value && i>0) inputs[i-1].focus();
+        });
+        inp.addEventListener('paste', e => {
+            e.preventDefault();
+            const digits = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6);
+            inputs.forEach((el,idx) => el.value = digits[idx]||'');
+            inputs[Math.min(digits.length,5)].focus();
+        });
+    });
+}
+async function verify2FA() {
+    const code = [...document.querySelectorAll('.otp-digit')].map(i=>i.value).join('');
+    if (code.length<6) { alert('Please enter all 6 digits.'); return; }
+    try {
+        const res  = await fetch('/api/auth/verify-otp', {
+            method:'POST', credentials:'same-origin',
+            headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},
+            body: JSON.stringify({otp:code}),
+        });
+        const data = await res.json();
+        if (data.success) { document.getElementById('mfa-overlay').classList.remove('visible'); onSuccess(data.redirectUrl); }
+        else alert('Invalid or expired code. Please try again.');
+    } catch { alert('Network error. Please try again.'); }
+}
+async function resendOTP() {
+    await fetch('/api/auth/resend-otp',{method:'POST',credentials:'same-origin',headers:{'X-CSRF-Token':csrfToken}});
+    alert('A new code has been sent to your email.');
+}
+
+/* ================================================================
+   HELPERS
+   ================================================================ */
+function setLoading(on) {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = on;
+    btn.classList.toggle('loading', on);
+    btn.querySelector('.btn-label').style.display = on ? 'none' : '';
+}
+function togglePw() {
+    const inp = document.getElementById('password');
+    const hidden = inp.type==='password';
+    inp.type = hidden ? 'text' : 'password';
+    document.getElementById('eye-open').style.display   = hidden ? 'none' : '';
+    document.getElementById('eye-closed').style.display = hidden ? '' : 'none';
+    document.getElementById('pw-toggle').setAttribute('aria-label', hidden?'Hide password':'Show password');
+}
+</script>
+</body>
+</html>

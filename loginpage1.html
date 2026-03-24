@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Constellation | Secure Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a; /* Slate 900 */
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* The Canvas sits behind everything */
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* The Login Container sits on top */
+        #login-container {
+            position: relative;
+            z-index: 10;
+            perspective: 1000px;
+        }
+
+        /* Glassmorphism Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Input Autofill Fix for Dark Mode */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #1e293b inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        .floating-label {
+            transition: all 0.2s ease-out;
+        }
+        
+        input:focus ~ .floating-label,
+        input:not(:placeholder-shown) ~ .floating-label {
+            transform: translateY(-24px) scale(0.85);
+            color: #38bdf8; /* Sky 400 */
+        }
+
+        /* Custom Scrollbar for the list if needed */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-white h-screen w-screen flex items-center justify-center selection:bg-sky-500 selection:text-white">
+
+    <!-- Background Animation Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Login Interface -->
+    <div id="login-container" class="w-full max-w-md p-6">
+        <div id="tilt-card" class="glass-card rounded-2xl p-8 w-full">
+            
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-sky-500/10 mb-4 ring-1 ring-sky-500/50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold font-['Space_Grotesk'] tracking-tight text-white">Welcome Back</h2>
+                <p class="text-slate-400 text-sm mt-2">Enter the client portal</p>
+            </div>
+
+            <!-- Form -->
+            <form id="login-form" class="space-y-6" onsubmit="event.preventDefault(); handleLogin();">
+                
+                <!-- Email Input -->
+                <div class="relative group">
+                    <input type="email" id="email" required placeholder=" " 
+                        class="block w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-white transition-colors peer" />
+                    <label for="email" class="floating-label absolute left-4 top-3 text-slate-400 pointer-events-none origin-left">
+                        Email Address
+                    </label>
+                </div>
+
+                <!-- Password Input -->
+                <div class="relative group">
+                    <input type="password" id="password" required placeholder=" " 
+                        class="block w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-white transition-colors peer" />
+                    <label for="password" class="floating-label absolute left-4 top-3 text-slate-400 pointer-events-none origin-left">
+                        Password
+                    </label>
+                    <button type="button" onclick="togglePassword()" class="absolute right-3 top-3.5 text-slate-500 hover:text-sky-400 transition-colors">
+                        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center justify-between text-sm">
+                    <label class="flex items-center text-slate-400 cursor-pointer hover:text-slate-300">
+                        <input type="checkbox" class="mr-2 rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0 focus:ring-offset-0">
+                        Remember me
+                    </label>
+                    <a href="#" class="text-sky-400 hover:text-sky-300 transition-colors">Forgot password?</a>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submit-btn" class="w-full py-3 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-semibold rounded-lg shadow-lg shadow-sky-500/20 transform transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <span>Sign In</span>
+                    <svg id="btn-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+        
+        <div class="mt-6 text-center text-xs text-slate-500">
+            &copy; 2023 Client Constellation Inc. All rights reserved.
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        /* --- 1. CONFIGURATION & DATA --- */
+        const CLIENT_NAMES = [
+            "Tesla", "SpaceX", "Neuralink", "Boring Co", "Apple", "Microsoft", 
+            "Google", "Amazon", "Meta", "Netflix", "Spotify", "Adobe", 
+            "Salesforce", "Oracle", "IBM", "Intel", "Nvidia", "Samsung", 
+            "Sony", "Nintendo", "Pixar", "Marvel", "Disney", "Warner Bros",
+            "Universal", "Paramount", "HBO", "Hulu", "Airbnb", "Uber", 
+            "Lyft", "Stripe", "Square", "PayPal", "Visa", "Mastercard",
+            "Nike", "Adidas", "Puma", "Gucci", "Prada", "Louis Vuitton",
+            "Chanel", "Dior", "Versace", "Armani", "Rolex", "Omega",
+            "Cartier", "Tiffany", "Bulgari", "Zara", "H&M", "Uniqlo"
+        ];
+
+        /* --- 2. CANVAS ANIMATION ENGINE --- */
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let particles = [];
+        let mouse = { x: null, y: null, radius: 150 };
+
+        // Handle Resize
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Track Mouse
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
+        });
+        window.addEventListener('mouseout', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
+
+        class Particle {
+            constructor() {
+                this.reset(true); // true = initial spawn
+            }
+
+            reset(initial = false) {
+                // Spawn from left or right side
+                this.side = Math.random() < 0.5 ? 'left' : 'right';
+                
+                if (this.side === 'left') {
+                    this.x = -100;
+                    this.vx = Math.random() * 1.5 + 0.5; // Move right
+                } else {
+                    this.x = width + 100;
+                    this.vx = (Math.random() * 1.5 + 0.5) * -1; // Move left
+                }
+
+                // Random Y position
+                this.y = Math.random() * height;
+                
+                // Slight vertical drift
+                this.vy = (Math.random() - 0.5) * 0.5;
+
+                // Properties
+                this.text = CLIENT_NAMES[Math.floor(Math.random() * CLIENT_NAMES.length)];
+                this.size = Math.random() * 14 + 10; // Font size 10-24px
+                this.alpha = 0;
+                this.targetAlpha = Math.random() * 0.4 + 0.1; // Max opacity 0.1 - 0.5
+                this.fadeState = 'in'; // in, hold, out
+                
+                // Color palette (Blues, Cyans, Whites, Purples)
+                const colors = ['#38bdf8', '#818cf8', '#c084fc', '#e2e8f0', '#94a3b8'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Life cycle
+                this.life = 0;
+                this.maxLife = Math.random() * 500 + 500; // Frames to live
+                
+                // Initial delay if spawning for the first time (staggered load effect)
+                if (initial) {
+                    this.x = Math.random() * width; // Scatter initially
+                    this.vx = (Math.random() - 0.5) * 1; // Drift aimlessly at first
+                    this.alpha = this.targetAlpha;
+                }
+            }
+
+            update() {
+                // Movement
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Mouse Interaction (Repel)
+                if (mouse.x != null) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distance = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (distance < mouse.radius) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (mouse.radius - distance) / mouse.radius;
+                        const directionX = forceDirectionX * force * 2; // Push strength
+                        const directionY = forceDirectionY * force * 2;
+                        
+                        this.x -= directionX;
+                        this.y -= directionY;
+                    }
+                }
+
+                // Fade Logic
+                this.life++;
+                if (this.fadeState === 'in') {
+                    this.alpha += 0.01;
+                    if (this.alpha >= this.targetAlpha) this.fadeState = 'hold';
+                } else if (this.fadeState === 'hold' && this.life > this.maxLife - 100) {
+                    this.fadeState = 'out';
+                } else if (this.fadeState === 'out') {
+                    this.alpha -= 0.01;
+                }
+
+                // Reset if dead or off screen
+                if (this.alpha <= 0 && this.fadeState === 'out') {
+                    this.reset();
+                }
+                
+                // Wrap around screen edges gently for continuous flow
+                if (this.x < -200 && this.vx < 0) this.x = width + 100;
+                if (this.x > width + 200 && this.vx > 0) this.x = -100;
+                if (this.y < -50) this.y = height + 50;
+                if (this.y > height + 50) this.y = -50;
+            }
+
+            draw() {
+                ctx.font = `300 ${this.size}px 'Space Grotesk'`;
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            // Create enough particles to fill the screen density
+            const particleCount = Math.min(width / 10, 150); 
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(true)); // true = initial random scatter
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Optional: Draw subtle gradient background on canvas if needed, 
+            // but CSS background is handling the base color.
+            
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            
+            requestAnimationFrame(animate);
+        }
+
+        initParticles();
+        animate();
+
+
+        /* --- 3. UI INTERACTION LOGIC --- */
+        
+        // 3D Tilt Effect for Login Card
+        const card = document.getElementById('tilt-card');
+        const container = document.getElementById('login-container');
+
+        container.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Calculate rotation (limited to small angles)
+            const xRotation = -((y - rect.height/2) / 20); 
+            const yRotation = (x - rect.width/2) / 20;
+            
+            card.style.transform = `rotateX(${xRotation}deg) rotateY(${yRotation}deg)`;
+        });
+
+        container.addEventListener('mouseleave', () => {
+            card.style.transform = `rotateX(0deg) rotateY(0deg)`;
+        });
+
+        // Password Visibility Toggle
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />';
+            }
+        }
+
+        // Login Simulation
+        function handleLogin() {
+            const btn = document.getElementById('submit-btn');
+            const spinner = document.getElementById('btn-spinner');
+            const btnText = btn.querySelector('span');
+            const email = document.getElementById('email').value;
+
+            // Loading State
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            spinner.classList.remove('hidden');
+            btnText.textContent = 'Authenticating...';
+
+            // Simulate API Call
+            setTimeout(() => {
+                // Success State
+                spinner.classList.add('hidden');
+                btnText.textContent = 'Success!';
+                btn.classList.remove('from-sky-500', 'to-blue-600');
+                btn.classList.add('from-emerald-500', 'to-green-600');
+                
+                // Visual flair: Make particles rush to center
+                particles.forEach(p => {
+                    p.vx = (width/2 - p.x) * 0.05;
+                    p.vy = (height/2 - p.y) * 0.05;
+                    p.targetAlpha = 0; // Fade out
+                });
+
+                setTimeout(() => {
+                    alert(`Welcome back, ${email}! (Demo Mode)`);
+                    // Reset
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed', 'from-emerald-500', 'to-green-600');
+                    btn.classList.add('from-sky-500', 'to-blue-600');
+                    btnText.textContent = 'Sign In';
+                    document.getElementById('login-form').reset();
+                    
+                    // Reset particles
+                    initParticles();
+                }, 1000);
+
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
